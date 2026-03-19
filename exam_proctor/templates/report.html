@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Candidate Proctoring Report</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    padding: 30px;
+}
+.report {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.15);
+}
+h1 {
+    text-align: center;
+}
+.section {
+    margin-top: 25px;
+}
+.bar {
+    height: 18px;
+    background: #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.fill {
+    height: 100%;
+}
+.red { background: #e74c3c; }
+.green { background: #2ecc71; }
+.orange { background: #f39c12; }
+table {
+    width: 100%;
+    margin-top: 10px;
+}
+td {
+    padding: 6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="report">
+<h1>Examination Report</h1>
+
+<div class="section">
+<b>Exam Name:</b> Python Assessment<br>
+<b>Candidate Name:</b> Rani Varghese<br>
+<b>Email:</b> student@test.com<br>
+<b>College name:</b> Jyothi Engineering College, Thrissur, Kerala<br>
+<b>Department:</b> Electronics and Communication<br>
+<b>Semester:</b>S6
+</div>
+
+<div class="section">
+<h3>Performance Summary</h3>
+<table>
+<tr><td>Total Score</td><td><b>{{ score }}/20</b></td></tr>
+<tr><td>Cheating Attempts</td><td>{{ malpractice }}</td></tr>
+</table>
+</div>
+
+<div class="section">
+<h3>Behavioral Metrics (Inferred)</h3>
+
+<div class="section">
+<h3>Malpractice Timeline</h3>
+
+<table border="1">
+<tr>
+<th>Time (MM:SS)</th>
+<th>Event</th>
+</tr>
+
+{% for e in events %}
+<tr>
+<td>{{ e.time }}</td>
+<td>{{ e.event }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+<p>Exam Stress: {{ stress }}%</p>
+<div class="bar"><div class="fill red" style=<width: {stress }%></div></div>
+
+<p>Confidence Level: {{ confidence }}%</p>
+<div class="bar"><div class="fill green" style=<width: { confidence }%></div></div>
+
+</div>
+
+
+</div>
+</body>
+</html>

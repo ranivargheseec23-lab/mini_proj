@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Online Examination</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    max-width: 1000px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#timer {
+    font-size: 18px;
+    font-weight: bold;
+}
+.question-box { margin-top: 20px; }
+.option { display: block; margin: 8px 0; }
+.buttons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+button {
+    padding: 10px 18px;
+    font-size: 16px;
+    border: none;
+    background: #007bff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+}
+button:disabled { background: gray; }
+
+.proctor-container {
+    text-align:center;
+    margin-bottom:20px;
+}
+
+video {
+    border:2px solid #444;
+    border-radius:8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="proctor-container">
+<h3>Candidate Monitoring</h3>
+
+<video id="webcam" autoplay muted playsinline width="640" height="480"></video>
+
+<p>
+Stress: <span id="stressVal">0%</span> |
+Confidence: <span id="confidenceVal">100%</span> |
+Malpractice: <span id="cheatVal">0</span>
+</p>
+</div>
+
+<div class="container">
+<div class="top-bar">
+<h2>Online Assessment</h2>
+<div id="timer">Time Left: 60:00</div>
+</div>
+
+<div class="question-box">
+<h3 id="questionText">Loading...</h3>
+<div id="options"></div>
+</div>
+
+<div class="buttons">
+<button id="nextBtn">Next</button>
+<button id="submitBtn" disabled>Submit Exam</button>
+</div>
+</div>
+
+<script>
+/* ================= QUESTIONS ================= */
+const questions = [
+ {q:"Python file extension?", options:[".py",".pt",".p",".python"], answer:0},
+ {q:"Keyword to define function?", options:["func","define","def","function"], answer:2},
+ {q:"Output of type(5)?", options:["int","str","float","bool"], answer:0},
+ {q:"Immutable datatype?", options:["list","set","dict","tuple"], answer:3},
+ {q:"Exponent operator?", options:["^","**","//","%"], answer:1},
+ {q:"len() returns?", options:["size","length","count","index"], answer:1},
+ {q:"Loop keyword?", options:["repeat","for","loop","iterate"], answer:1},
+ {q:"Comment symbol?", options:["//","#","%","/*"], answer:1},
+ {q:"2+3*4?", options:["20","14","24","18"], answer:1},
+ {q:"Allows duplicates?", options:["set","tuple","dict","none"], answer:1},
+ {q:"String to int?", options:["str()","int()","float()","bool()"], answer:1},
+ {q:"Exception handling?", options:["try","catch","error","except"], answer:0},
+ {q:"bool(0)?", options:["True","False","None","Error"], answer:1},
+ {q:"Loop runs once?", options:["for","while","do-while","foreach"], answer:2},
+ {q:"Print output?", options:["echo","display","print","show"], answer:2},
+ {q:"Python framework?", options:["React","Angular","Django","Vue"], answer:2},
+ {q:"Indentation used for?", options:["beauty","block","comment","debug"], answer:1},
+ {q:"Comparison operator?", options:["=","==","===","=>"], answer:1},
+ {q:"Stop loop?", options:["stop","exit","break","end"], answer:2},
+ {q:"User input?", options:["scan()","read()","input()","get()"], answer:2}
+];
+
+let index = 0;
+let answers = new Array(questions.length).fill(null);
+
+/* ================= TIMER ================= */
+let time = 60 * 60;
+const timerEl = document.getElementById("timer");
+
+const timerInterval = setInterval(() => {
+    let m = Math.floor(time / 60);
+    let s = time % 60;
+    timerEl.innerText = `Time Left: ${m}:${s < 10 ? "0"+s : s}`;
+    if (time <= 0) submitExam();
+    time--;
+}, 1000);
+
+document.addEventListener("visibilitychange", function() {
+    if (document.hidden) {
+        alert("Tab switching detected!");
+        fetch("/tab_switch", {method: "POST"});
+    }
+});
+
+/* ================= LOAD QUESTION ================= */
+function loadQuestion() {
+    const q = questions[index];
+    document.getElementById("questionText").innerText = `Q${index+1}. ${q.q}`;
+
+    const optDiv = document.getElementById("options");
+    optDiv.innerHTML = "";
+
+    q.options.forEach((opt,i)=>{
+        optDiv.innerHTML += `
+            <label class="option">
+                <input type="radio" name="opt" value="${i}"
+                ${answers[index]===i?"checked":""}>
+                ${opt}
+            </label>`;
+    });
+
+    document.getElementById("nextBtn").disabled = index === questions.length-1;
+    document.getElementById("submitBtn").disabled = index !== questions.length-1;
+}
+loadQuestion();
+
+document.getElementById("nextBtn").onclick = () => {
+    const sel = document.querySelector('input[name="opt"]:checked');
+    if (!sel) return alert("Select an option");
+    answers[index] = parseInt(sel.value);
+    index++;
+    loadQuestion();
+};
+
+/* ================= WEBCAM + DEEPFACE ================= */
+let stress = 0;
+let confidence = 0;
+let malpractice = 0;
+let totalFrames = 0;
+let running = true;
+
+const video = document.getElementById("webcam");
+
+navigator.mediaDevices.getUserMedia({video:true})
+.then(stream => video.srcObject = stream);
+
+setInterval(() => {
+
+    if (!running) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, 320, 240);
+
+    const imageData = canvas.toDataURL("image/jpeg");
+
+    fetch("/analyze", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({image:imageData})
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        totalFrames++;
+
+        if (data.emotion === "no_face"){
+            malpractice++;
+        }
+
+        document.getElementById("stressVal").innerText = data.stress + "%";
+        document.getElementById("confidenceVal").innerText = data.confidence + "%";
+        document.getElementById("cheatVal").innerText = data.malpractice;
+
+    });
+
+}, 3000); // every 3 seconds for 60 mins
+
+/* ================= SUBMIT ================= */
+document.getElementById("submitBtn").onclick = submitExam;
+
+function submitExam(){
+
+    running = false;
+    clearInterval(timerInterval);
+
+    let score = 0;
+    answers.forEach((a,i)=>{
+        if (a === questions[i].answer) score++;
+    });
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/submit";
+
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "score";
+    input.value = score;
+
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+
+</body>
+</html>
